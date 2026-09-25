@@ -1,0 +1,493 @@
+{
+  "info": {
+    "_postman_id": "b1e2f3a4-5c6d-4e7f-8a9b-0c1d2e3f4a5b",
+    "name": "Personal Expense Tracker",
+    "description": "Login once — the token (and any created expense/income id) is captured automatically and reused by every other request. No manual copy-pasting needed.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "expenseId", "value": "", "type": "string" },
+    { "key": "incomeId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"testuser@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "    const body = pm.response.json();",
+                  "    if (body.token) {",
+                  "        pm.collectionVariables.set('token', body.token);",
+                  "        pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "        console.log('Token captured and stored for all other requests.');",
+                  "    }",
+                  "} catch (e) {",
+                  "    console.log('Login did not return JSON — check the response before continuing.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "    const body = pm.response.json();",
+                  "    if (body.token) {",
+                  "        pm.collectionVariables.set('token', body.token);",
+                  "        pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "        console.log('New token pair captured. The old refresh token no longer works.');",
+                  "    }",
+                  "} catch (e) {",
+                  "    console.log('Refresh failed — log in again.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Login Wrong Password (rate limit demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 429) {",
+                  "    console.log('Blocked: 5 failed logins for this email. Wait 15 minutes or DEL the login-attempts key in Redis.');",
+                  "} else {",
+                  "    console.log('Failed login recorded (' + pm.response.code + '). The 6th failure within 15 minutes returns 429.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "description": "Send this 6 times: 5 x 401, then 429. Uses a separate email so the main test user never gets locked out. A successful login resets the counter.",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ratelimit@example.com\",\n  \"password\": \"wrong\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get My Name",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/user/name",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "name"]
+            }
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"testuser@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "update"]
+            }
+          }
+        },
+        {
+          "name": "Get My Expenses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/user/expenses?page=0&size=20&sort=date,desc&startDate=&endDate=&category=",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "expenses"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "date,desc" },
+                { "key": "startDate", "value": "", "disabled": true },
+                { "key": "endDate", "value": "", "disabled": true },
+                { "key": "category", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Expenses Total Amount",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/user/expenses/total-amount?category=",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "expenses", "total-amount"],
+              "query": [
+                { "key": "category", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Incomes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/user/incomes?page=0&size=20&sort=date,desc&startDate=&endDate=&source=",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "incomes"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "date,desc" },
+                { "key": "startDate", "value": "", "disabled": true },
+                { "key": "endDate", "value": "", "disabled": true },
+                { "key": "source", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Incomes Total Amount",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/user/incomes/total-amount?source=",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "incomes", "total-amount"],
+              "query": [
+                { "key": "source", "value": "", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Expense",
+      "item": [
+        {
+          "name": "Add Expense",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('expenseId', body.id);",
+                  "        console.log('expenseId captured: ' + body.id);",
+                  "    }",
+                  "} catch (e) {",
+                  "    console.log('Add Expense did not return JSON — check the response before continuing.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Groceries run\",\n  \"amount\": 42.50,\n  \"description\": \"Weekly shopping\",\n  \"category\": \"Groceries\",\n  \"date\": \"2026-09-20\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/expense",
+              "host": ["{{baseUrl}}"],
+              "path": ["expense"]
+            }
+          }
+        },
+        {
+          "name": "Get Expense Name",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/expense/{{expenseId}}/name",
+              "host": ["{{baseUrl}}"],
+              "path": ["expense", "{{expenseId}}", "name"]
+            }
+          }
+        },
+        {
+          "name": "Get Expense Description",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/expense/{{expenseId}}/description",
+              "host": ["{{baseUrl}}"],
+              "path": ["expense", "{{expenseId}}", "description"]
+            }
+          }
+        },
+        {
+          "name": "Get Expense Amount",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/expense/{{expenseId}}/amount",
+              "host": ["{{baseUrl}}"],
+              "path": ["expense", "{{expenseId}}", "amount"]
+            }
+          }
+        },
+        {
+          "name": "Update Expense",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Groceries run (updated)\",\n  \"amount\": 55.00,\n  \"description\": \"Weekly shopping, bought extra\",\n  \"category\": \"Groceries\",\n  \"date\": \"2026-09-20\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/expense/{{expenseId}}/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["expense", "{{expenseId}}", "update"]
+            }
+          }
+        },
+        {
+          "name": "Delete Expense",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/expense/{{expenseId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["expense", "{{expenseId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Income",
+      "item": [
+        {
+          "name": "Add Income",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('incomeId', body.id);",
+                  "        console.log('incomeId captured: ' + body.id);",
+                  "    }",
+                  "} catch (e) {",
+                  "    console.log('Add Income did not return JSON — check the response before continuing.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"September salary\",\n  \"amount\": 3000.00,\n  \"description\": \"Monthly paycheck\",\n  \"source\": \"Salary\",\n  \"date\": \"2026-09-20\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/income",
+              "host": ["{{baseUrl}}"],
+              "path": ["income"]
+            }
+          }
+        },
+        {
+          "name": "Get Income Name",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/income/{{incomeId}}/name",
+              "host": ["{{baseUrl}}"],
+              "path": ["income", "{{incomeId}}", "name"]
+            }
+          }
+        },
+        {
+          "name": "Get Income Description",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/income/{{incomeId}}/description",
+              "host": ["{{baseUrl}}"],
+              "path": ["income", "{{incomeId}}", "description"]
+            }
+          }
+        },
+        {
+          "name": "Get Income Amount",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/income/{{incomeId}}/amount",
+              "host": ["{{baseUrl}}"],
+              "path": ["income", "{{incomeId}}", "amount"]
+            }
+          }
+        },
+        {
+          "name": "Update Income",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"September salary (corrected)\",\n  \"amount\": 3200.00,\n  \"description\": \"Monthly paycheck plus bonus\",\n  \"source\": \"Salary\",\n  \"date\": \"2026-09-20\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/income/{{incomeId}}/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["income", "{{incomeId}}", "update"]
+            }
+          }
+        },
+        {
+          "name": "Delete Income",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/income/{{incomeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["income", "{{incomeId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session (run these last, on their own)",
+      "description": "Both of these end your current session. Run only ONE of them when you're done exploring — running Logout and then Delete My Account back-to-back will correctly show the second one failing with 403, since Logout already revoked the token. That 403 is the revocation feature working as intended, not a bug.",
+      "item": [
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Delete My Account",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/user/delete",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "delete"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
